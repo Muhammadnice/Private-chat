@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Web - Anonymous Private Room</title>
+    
+    <!-- Dependencies: Tailwind CSS for UI structure and FontAwesome for authentic Telegram icons -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Socket.io client script -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+        body {
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background-color: #0f1721;
+            color: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Telegram Background Pattern SVG Pattern */
+        .chat-bg {
+            background-color: #0e1621;
+            background-image: radial-gradient(#1c2938 1px, transparent 0);
+            background-size: 24px 24px;
+        }
+
+        /* Custom Scrollbar styling matching Telegram Desktop */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        /* Message tail vector approximations */
+        .msg-out::before {
+            content: "";
+            position: absolute;
+            right: -8px;
+            bottom: 0;
+            width: 0;
+            height: 0;
+            border-left: 10px solid #2b5278;
+            border-top: 10px solid transparent;
+        }
+
+        .msg-in::before {
+            content: "";
+            position: absolute;
+            left: -8px;
+            bottom: 0;
+            width: 0;
+            height: 0;
+            border-right: 10px solid #182533;
+            border-top: 10px solid transparent;
+        }
+
+        /* Soft fade keyframes */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-msg {
+            animation: fadeIn 0.15s ease-out forwards;
+        }
+
+        /* Subtle pulse for online status indicator */
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .typing-dots span {
+            animation: pulse-subtle 1s infinite;
+        }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <!-- App Container -->
+    <div class="w-full max-w-2xl h-full md:h-[92vh] flex flex-col bg-[#17212b] md:rounded-2xl shadow-2xl overflow-hidden border border-[#0e1621]">
+
+        <!-- Chat Header -->
+        <header class="bg-[#17212b] px-4 py-3 flex items-center justify-between border-b border-[#0e1621] z-10 select-none">
+            <div class="flex items-center space-x-3 cursor-pointer">
+                <!-- Avatar -->
+                <div class="relative w-10 h-10 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white text-lg shadow-md">
+                    <span id="peerInitials">TG</span>
+                    <div id="statusDot" class="absolute bottom-0 right-0 w-3 h-3 bg-gray-500 border-2 border-[#17212b] rounded-full transition-colors duration-300"></div>
+                </div>
+                <!-- Title & Online Status -->
+                <div class="flex flex-col">
+                    <h1 class="text-sm font-medium text-white flex items-center gap-1">
+                        <span id="chatTitle">Private Room</span>
+                        <i class="fa-solid font-xs text-xs text-blue-400 fa-circle-check" title="Verified Session"></i>
+                    </h1>
+                    <span id="chatStatus" class="text-xs text-[#7f91a4] transition-all">Connecting to room...</span>
+                </div>
+            </div>
+
+            <!-- Header Actions -->
+            <div class="flex items-center space-x-2 text-[#7f91a4]">
+                <button onclick="copyShareLink()" class="p-2 hover:bg-[#202b36] hover:text-white rounded-full transition-colors text-sm flex items-center gap-2 bg-[#202b36]/50 px-3 border border-white/5" title="Copy Chat Link">
+                    <i class="fa-regular fa-copy text-sky-400"></i>
+                    <span class="text-xs font-medium text-slate-200 hidden sm:inline">Copy Link</span>
+                </button>
+                <button class="p-2.5 hover:bg-[#202b36] hover:text-white rounded-full transition-colors" title="Search Message (UI Mock)">
+                    <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                </button>
+                <button class="p-2.5 hover:bg-[#202b36] hover:text-white rounded-full transition-colors" title="More Options">
+                    <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Chat Body / Messages Area -->
+        <main id="chatWindow" class="flex-1 chat-bg p-4 overflow-y-auto space-y-3 flex flex-col">
+            <!-- Encryption Notice Banner -->
+            <div class="mx-auto my-2 px-4 py-1.5 rounded-full bg-[#111921]/80 border border-white/5 text-[11px] text-[#7f91a4] text-center shadow-inner select-none max-w-xs">
+                <i class="fa-solid fa-lock text-emerald-400 mr-1"></i> Messages are link-bound & end-to-end socket routed
+            </div>
+            
+            <!-- Message elements will be appended dynamically here -->
+        </main>
+
+        <!-- Chat Input Footer -->
+        <footer class="bg-[#17212b] p-3 border-t border-[#0e1621] flex items-center space-x-2 relative">
+            <!-- File attachment icon -->
+            <button class="p-2.5 text-[#7f91a4] hover:text-white hover:bg-[#202b36] rounded-full transition-colors" title="Attach Media (Demo)">
+                <i class="fa-solid fa-paperclip text-lg"></i>
+            </button>
+
+            <!-- Text Input Container -->
+            <div class="flex-1 bg-[#0e1621] rounded-2xl flex items-center px-4 py-2 border border-[#202b36] focus-within:border-sky-500/50 transition-colors">
+                <input 
+                    type="text" 
+                    id="messageInput" 
+                    placeholder="Write a message..." 
+                    class="w-full bg-transparent text-sm text-white placeholder-[#7f91a4] focus:outline-none"
+                    autocomplete="off"
+                    onkeydown="handleKeyDown(event)"
+                    oninput="handleTyping()"
+                >
+                <button class="text-[#7f91a4] hover:text-yellow-400 transition-colors ml-2" title="Emoji">
+                    <i class="fa-regular fa-face-smile text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Dynamic Send / Voice Button -->
+            <button 
+                id="sendBtn" 
+                onclick="sendMessage()" 
+                class="w-10 h-10 rounded-full bg-[#5288c1] hover:bg-[#6297d0] active:scale-95 text-white flex items-center justify-center transition-all shadow-md"
+                title="Send Message"
+            >
+                <i id="sendIcon" class="fa-solid fa-microphone text-base"></i>
+            </button>
+        </footer>
+    </div>
+
+    <!-- Toast Popup for Link Copy Notification -->
+    <div id="toast" class="fixed bottom-16 bg-[#2b5278] text-white text-xs px-4 py-2.5 rounded-lg shadow-xl border border-sky-400/30 opacity-0 pointer-events-none transition-all duration-300 transform translate-y-4 flex items-center gap-2">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMsg">Link copied to clipboard!</span>
+    </div>
+
+    <script>
+        /* 
+        ========================================================================
+        TELEGRAM ANONYMOUS CHAT - FULL CLIENT-SIDE ARCHITECTURE
+        ========================================================================
+        This script connects to the backend Socket.io server, handles instant 
+        peer-to-peer room binding based on URL path, manages single/double checkmark
+        read receipts, sound triggers via Web Audio API, and dynamic typing events.
+        */
+
+        let socket;
+        let roomId;
+        let mySocketId = null;
+        let typingTimeout = null;
+        let isTyping = false;
+
+        // Initialize Audio Context for dynamic sound effects without external MP3 files
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioCtx();
+            }
+        }
+
+        // Web Audio Synthesizer for Telegram 'Pop' notifications
+        function playTelegramPop(isOutgoing = false) {
+            try {
+                initAudio();
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                
+                // Outgoing higher pitch pop, Incoming deeper full pop
+                const startFreq = isOutgoing ? 600 : 400;
+                const endFreq = isOutgoing ? 900 : 750;
+
+                osc.frequency.setValueAtTime(startFreq, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(endFreq, audioCtx.currentTime + 0.08);
+
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.08);
+            } catch (e) {
+                console.warn("Audio playback non-fatal error:", e);
+            }
+        }
+
+        // Window startup initialization
+        window.addEventListener('DOMContentLoaded', () => {
+            setupRoomFromURL();
+            initializeSocket();
+            setupInputListeners();
+            setupVisibilityListener();
+        });
+
+        // Parse or generate room ID from window path
+        function setupRoomFromURL() {
+            const pathParts = window.location.pathname.split('/').filter(Boolean);
+            if (pathParts.length >= 2 && pathParts[0] === 'chat') {
+                roomId = pathParts[1];
+            } else {
+                // Generate a random 9-character room string matching Telegram group link format
+                roomId = Math.random().toString(36).substring(2, 11);
+                window.history.replaceState({}, '', `/chat/${roomId}`);
+            }
+            document.getElementById('peerInitials').innerText = roomId.substring(0, 2).toUpperCase();
+        }
+
+        // Establish socket connectivity and listen for real-time events
+        function initializeSocket() {
+            // Socket connection automatically infers host origin
+            socket = io();
+
+            socket.on('connect', () => {
+                mySocketId = socket.id;
+                socket.emit('join-room', { roomId });
+            });
+
+            // Update user status based on peer presence in the room
+            socket.on('room-status', (data) => {
+                const statusElem = document.getElementById('chatStatus');
+                const dotElem = document.getElementById('statusDot');
+                
+                if (data.memberCount > 1) {
+                    statusElem.innerText = 'online';
+                    statusElem.classList.remove('text-[#7f91a4]');
+                    statusElem.classList.add('text-sky-400');
+                    dotElem.classList.remove('bg-gray-500');
+                    dotElem.classList.add('bg-emerald-500');
+                } else {
+                    statusElem.innerText = 'waiting for friend to join link...';
+                    statusElem.classList.remove('text-sky-400');
+                    statusElem.classList.add('text-[#7f91a4]');
+                    dotElem.classList.remove('bg-emerald-500');
+                    dotElem.classList.add('bg-gray-500');
+                }
+            });
+
+            // Receive inbound message
+            socket.on('receive-message', (data) => {
+                const isMe = data.senderId === mySocketId;
+                renderMessageBubble(data, isMe);
+
+                if (!isMe) {
+                    playTelegramPop(false);
+                    
+                    // If current document tab is active, emit read receipt immediately
+                    if (document.visibilityState === 'visible') {
+                        socket.emit('mark-read', { messageId: data.id, roomId });
+                    }
+                }
+            });
+
+            // Update tick checkmark status on read confirmation
+            socket.on('message-read-update', (data) => {
+                const tickIcon = document.getElementById(`tick-${data.messageId}`);
+                if (tickIcon) {
+                    // Switch to double blue checkmarks (Light blue #64b5f6 in Telegram dark theme)
+                    tickIcon.className = "fa-solid fa-check-double text-[11px] text-[#64b5f6]";
+                    tickIcon.title = "Read";
+                }
+            });
+
+            // Peer typing notification handler
+            socket.on('peer-typing', (data) => {
+                if (data.senderId !== mySocketId) {
+                    const statusElem = document.getElementById('chatStatus');
+                    if (data.isTyping) {
+                        statusElem.innerHTML = `<span class="typing-dots text-sky-400 font-medium">typing<span>.</span><span>.</span><span>.</span></span>`;
+                    } else {
+                        statusElem.innerText = 'online';
+                    }
+                }
+            });
+        }
+
+        // Attach dynamic button icon switch listener (Mic -> Send Arrow)
+        function setupInputListeners() {
+            const input = document.getElementById('messageInput');
+            const sendIcon = document.getElementById('sendIcon');
+
+            input.addEventListener('input', () => {
+                if (input.value.trim().length > 0) {
+                    sendIcon.className = "fa-solid fa-paper-plane text-sm translate-x-[-1px]";
+                } else {
+                    sendIcon.className = "fa-solid fa-microphone text-base";
+                }
+            });
+        }
+
+        // Handle typing events to broadcast 'peer-typing' to room
+        function handleTyping() {
+            if (!isTyping) {
+                isTyping = true;
+                socket.emit('typing-status', { roomId, isTyping: true });
+            }
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                isTyping = false;
+                socket.emit('typing-status', { roomId, isTyping: false });
+            }, 1500);
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // Dispatch outgoing message
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+
+            if (!text) return;
+
+            initAudio(); // Resume audio context on user interaction
+            const msgId = 'msg_' + Math.random().toString(36).substring(2, 11);
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+            const payload = {
+                id: msgId,
+                roomId: roomId,
+                text: text,
+                time: timeStr
+            };
+
+            // Emit to socket server
+            socket.emit('send-message', payload);
+
+            // Play local send pop
+            playTelegramPop(true);
+
+            // Reset input state
+            input.value = '';
+            document.getElementById('sendIcon').className = "fa-solid fa-microphone text-base";
+            
+            // Stop typing status immediately
+            isTyping = false;
+            socket.emit('typing-status', { roomId, isTyping: false });
+        }
+
+        // Render message bubbles in Telegram dark style
+        function renderMessageBubble(data, isMe) {
+            const chatWindow = document.getElementById('chatWindow');
+            const msgWrapper = document.createElement('div');
+            
+            msgWrapper.className = `flex ${isMe ? 'justify-end' : 'justify-start'} animate-msg mb-1`;
+
+            // Telegram bubble container with ticks & time embedded in right bottom corner
+            const bubble = document.createElement('div');
+            bubble.className = `relative max-w-[80%] md:max-w-[70%] px-3 py-1.5 rounded-2xl text-sm shadow-md leading-relaxed break-words ${
+                isMe 
+                    ? 'bg-[#2b5278] text-white rounded-br-none msg-out' 
+                    : 'bg-[#182533] text-slate-100 rounded-bl-none msg-in'
+            }`;
+
+            // Single grey tick initial status for outgoing messages
+            const tickHTML = isMe 
+                ? `<i id="tick-${data.id}" class="fa-solid fa-check text-[11px] text-slate-400/80 ml-1" title="Sent"></i>`
+                : '';
+
+            bubble.innerHTML = `
+                <div class="pr-12 pb-1">${escapeHTML(data.text)}</div>
+                <div class="absolute bottom-1 right-2.5 flex items-center space-x-0.5 text-[10px] text-[#7f91a4] select-none pointer-events-none">
+                    <span>${data.time}</span>
+                    ${tickHTML}
+                </div>
+            `;
+
+            msgWrapper.appendChild(bubble);
+            chatWindow.appendChild(msgWrapper);
+
+            // Auto-scroll to latest message smooth
+            chatWindow.scrollTo({
+                top: chatWindow.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // Auto-mark unread messages as read when user returns to focus window
+        function setupVisibilityListener() {
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    // Request read verification for unread elements
+                    socket.emit('sync-read-receipts', { roomId });
+                }
+            });
+        }
+
+        // Copy room share link helper
+        function copyShareLink() {
+            const currentURL = window.location.href;
+            
+            // Native clipboard API with legacy fallback
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(currentURL).then(showToast);
+            } else {
+                const dummy = document.createElement('input');
+                document.body.appendChild(dummy);
+                dummy.value = currentURL;
+                dummy.select();
+                document.execCommand('copy');
+                document.body.removeChild(dummy);
+                showToast();
+            }
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+            }, 2500);
+        }
+
+        // Utility: Prevent XSS script injection in plain chat text
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+    </script>
+</body>
+</html>
