@@ -2,18 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegram Web - High Fidelity Experience</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Telegram Web</title>
     
-    <!-- Dependencies: Tailwind CSS and FontAwesome Icons -->
+    <!-- Tailwind CSS & FontAwesome Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Socket.io client script fallback guard -->
+    <!-- Socket.io client dependency -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            touch-action: manipulation;
+        }
 
         body {
             font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -24,97 +28,96 @@
             user-select: none;
         }
 
-        /* Telegram Background SVG Pattern */
+        /* Official Telegram Chat Background Pattern */
         .chat-bg {
             background-color: #0e1621;
-            background-image: radial-gradient(#1c2938 1.2px, transparent 0);
+            background-image: radial-gradient(#1c2938 1.2px, transparent 1.2px);
             background-size: 24px 24px;
         }
 
-        /* Custom Scrollbar */
+        /* Custom Telegram Scrollbar */
         ::-webkit-scrollbar {
             width: 5px;
             height: 5px;
         }
         ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.1);
+            background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.18);
+            border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.3);
         }
 
-        /* Message tail vector approximations */
+        /* Message Tails */
         .msg-out::before {
             content: "";
             position: absolute;
-            right: -8px;
+            right: -7px;
             bottom: 0;
             width: 0;
             height: 0;
-            border-left: 10px solid #2b5278;
-            border-top: 10px solid transparent;
+            border-left: 9px solid #2b5278;
+            border-top: 9px solid transparent;
         }
 
         .msg-in::before {
             content: "";
             position: absolute;
-            left: -8px;
+            left: -7px;
             bottom: 0;
             width: 0;
             height: 0;
-            border-right: 10px solid #182533;
-            border-top: 10px solid transparent;
+            border-right: 9px solid #182533;
+            border-top: 9px solid transparent;
         }
 
-        /* Soft fade keyframes */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .animate-msg {
-            animation: fadeIn 0.15s ease-out forwards;
-        }
-
-        @keyframes pulse-subtle {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-
-        .typing-dots span {
-            animation: pulse-subtle 1s infinite;
-        }
-        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-
-        /* Custom Context Menu */
-        #contextMenu {
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
-        }
-
-        .video-note {
-            width: 200px;
-            height: 200px;
+        /* Circular Video Notes */
+        .video-note-bubble {
+            width: 210px;
+            height: 210px;
             border-radius: 50%;
             object-fit: cover;
             border: 3px solid #5288c1;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+
+        /* Animations */
+        @keyframes msgPop {
+            0% { opacity: 0; transform: scale(0.96) translateY(6px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-msg {
+            animation: msgPop 0.15s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+        }
+
+        @keyframes typingPulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        .typing-dot {
+            animation: typingPulse 1s infinite ease-in-out;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        .context-shadow {
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
         }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen bg-[#0f1721]">
 
-    <!-- App Container -->
-    <div class="w-full max-w-5xl h-full md:h-[95vh] flex bg-[#17212b] md:rounded-2xl shadow-2xl overflow-hidden border border-[#0e1621] relative">
+    <!-- Main Telegram App Interface Container -->
+    <div class="w-full max-w-6xl h-full md:h-[96vh] flex bg-[#17212b] md:rounded-2xl shadow-2xl overflow-hidden border border-[#0e1621] relative">
 
-        <!-- Sidebar / Chat List (Responsive Mobile Support) -->
+        <!-- Sidebar / Chat Rooms Panel -->
         <aside id="sidebar" class="w-full md:w-80 bg-[#17212b] border-r border-[#0e1621] flex flex-col z-20 absolute md:relative h-full transition-transform duration-300 transform md:transform-none">
             <!-- Sidebar Header -->
             <div class="p-3 flex items-center justify-between border-b border-[#0e1621]">
-                <button onclick="toggleMobileSidebar()" class="p-2 text-[#7f91a4] hover:text-white rounded-full">
+                <button onclick="showToast('Telegram Settings coming soon')" class="p-2.5 text-[#7f91a4] hover:text-white rounded-full transition-colors">
                     <i class="fa-solid fa-bars text-lg"></i>
                 </button>
                 <div class="relative flex-1 mx-2">
@@ -123,91 +126,132 @@
                 </div>
             </div>
 
-            <!-- Active Chat List -->
+            <!-- Active Room Item -->
             <div class="flex-1 overflow-y-auto">
-                <div class="p-3 bg-[#202b36] flex items-center space-x-3 cursor-pointer border-b border-[#0e1621]">
-                    <div class="relative w-12 h-12 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white text-lg shadow">
-                        <span id="sidebarPeerInitials">PR</span>
-                        <div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-[#17212b] rounded-full"></div>
+                <div class="p-3 bg-[#202b36] flex items-center space-x-3 cursor-pointer border-b border-[#0e1621] transition-colors">
+                    <div class="relative w-12 h-12 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white text-lg shadow-md">
+                        <span id="sidebarInitials">TG</span>
+                        <div id="sidebarOnlineBadge" class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-[#17212b] rounded-full"></div>
                     </div>
                     <div class="flex-1 overflow-hidden">
                         <div class="flex justify-between items-baseline">
-                            <h2 class="text-sm font-medium text-white truncate" id="sidebarPeerName">Saved Messages Room</h2>
-                            <span class="text-[11px] text-[#7f91a4]">Just now</span>
+                            <h2 class="text-sm font-medium text-white truncate" id="sidebarRoomTitle">Private Chat Room</h2>
+                            <span class="text-[11px] text-[#7f91a4]" id="sidebarTime">Active</span>
                         </div>
-                        <p class="text-xs text-[#7f91a4] truncate" id="sidebarLastMsg">Click to start chatting...</p>
+                        <p class="text-xs text-[#7f91a4] truncate" id="sidebarLastMsg">Click to view dynamic room messages</p>
                     </div>
                 </div>
             </div>
+
+            <!-- Sidebar Footer User Quick Link -->
+            <div class="p-3 border-t border-[#0e1621] bg-[#17212b] flex items-center justify-between text-xs text-[#7f91a4]">
+                <span>No Account Required</span>
+                <button onclick="copyShareLink()" class="text-sky-400 hover:underline flex items-center gap-1">
+                    <i class="fa-solid fa-link"></i> Copy Link
+                </button>
+            </div>
         </aside>
 
-        <!-- Main Chat Panel -->
-        <div class="flex-1 flex flex-col h-full bg-[#0e1621] relative">
+        <!-- Main Workspace Chat Window -->
+        <main class="flex-1 flex flex-col h-full bg-[#0e1621] relative">
 
             <!-- Chat Header -->
-            <header class="bg-[#17212b] px-4 py-3 flex items-center justify-between border-b border-[#0e1621] z-10 select-none">
+            <header class="bg-[#17212b] px-4 py-2.5 flex items-center justify-between border-b border-[#0e1621] z-10 select-none">
                 <div class="flex items-center space-x-3">
                     <button onclick="toggleMobileSidebar()" class="md:hidden p-2 text-[#7f91a4] hover:text-white">
                         <i class="fa-solid fa-arrow-left text-lg"></i>
                     </button>
+                    
                     <!-- Avatar -->
-                    <div class="relative w-10 h-10 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white text-lg shadow-md cursor-pointer">
-                        <span id="peerInitials">TG</span>
-                        <div id="statusDot" class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#17212b] rounded-full transition-colors duration-300"></div>
+                    <div class="relative w-10 h-10 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white text-base shadow cursor-pointer">
+                        <span id="chatInitials">TG</span>
+                        <div id="headerStatusDot" class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#17212b] rounded-full"></div>
                     </div>
-                    <!-- Title & Online Status -->
+
+                    <!-- Peer Info -->
                     <div class="flex flex-col cursor-pointer">
-                        <h1 class="text-sm font-medium text-white flex items-center gap-1">
+                        <h1 class="text-sm font-medium text-white flex items-center gap-1.5">
                             <span id="chatTitle">Private Room</span>
-                            <i class="fa-solid fa-circle-check text-xs text-blue-400" title="Verified Room"></i>
+                            <i class="fa-solid fa-circle-check text-xs text-sky-400" title="Verified Session"></i>
                         </h1>
                         <span id="chatStatus" class="text-xs text-sky-400 transition-all">online</span>
                     </div>
                 </div>
 
-                <!-- Header Actions -->
+                <!-- Action Controls -->
                 <div class="flex items-center space-x-1 text-[#7f91a4]">
-                    <!-- Search inside Chat -->
-                    <div id="searchBarContainer" class="hidden items-center bg-[#0e1621] px-2 py-1 rounded-lg border border-[#202b36]">
-                        <input type="text" id="chatSearchInput" oninput="filterMessages()" placeholder="Search chat..." class="bg-transparent text-xs text-white focus:outline-none w-32 sm:w-48">
+                    <!-- In-Chat Search Bar -->
+                    <div id="searchBarContainer" class="hidden items-center bg-[#0e1621] px-2.5 py-1 rounded-lg border border-[#202b36]">
+                        <input type="text" id="chatSearchInput" oninput="filterMessages()" placeholder="Search chat..." class="bg-transparent text-xs text-white focus:outline-none w-28 sm:w-44">
                         <button onclick="toggleChatSearch()" class="text-xs text-gray-400 hover:text-white px-1"><i class="fa-solid fa-xmark"></i></button>
                     </div>
-                    <button onclick="toggleChatSearch()" class="p-2.5 hover:bg-[#202b36] hover:text-white rounded-full transition-colors" title="Search Messages">
+
+                    <button onclick="toggleChatSearch()" class="p-2.5 hover:bg-[#202b36] hover:text-white rounded-full transition-colors" title="Search Chat">
                         <i class="fa-solid fa-magnifying-glass text-sm"></i>
                     </button>
-                    <button onclick="copyShareLink()" class="p-2 hover:bg-[#202b36] hover:text-white rounded-full transition-colors text-sm flex items-center gap-2 bg-[#202b36]/50 px-3 border border-white/5" title="Copy Room Link">
+                    <button onclick="copyShareLink()" class="p-2.5 hover:bg-[#202b36] hover:text-white rounded-full transition-colors hidden sm:flex items-center gap-1.5 bg-[#202b36]/60 px-3 border border-white/5" title="Copy Invite Link">
                         <i class="fa-regular fa-copy text-sky-400"></i>
-                        <span class="text-xs font-medium text-slate-200 hidden sm:inline">Share</span>
+                        <span class="text-xs font-medium text-slate-200">Share Link</span>
+                    </button>
+                    <button onclick="showToast('Voice call feature active')" class="p-2.5 hover:bg-[#202b36] hover:text-white rounded-full transition-colors" title="Call">
+                        <i class="fa-solid fa-phone text-sm"></i>
                     </button>
                 </div>
             </header>
 
-            <!-- Chat Body / Messages Area -->
-            <main id="chatWindow" class="flex-1 chat-bg p-4 overflow-y-auto space-y-3 flex flex-col" onclick="closeContextMenu()">
-                <!-- Security Banner -->
-                <div class="mx-auto my-2 px-4 py-1.5 rounded-full bg-[#111921]/80 border border-white/5 text-[11px] text-[#7f91a4] text-center shadow-inner select-none max-w-xs">
-                    <i class="fa-solid fa-lock text-emerald-400 mr-1"></i> End-to-end encrypted Telegram room
+            <!-- Pinned Message Banner -->
+            <div id="pinBanner" class="hidden bg-[#182533] px-4 py-2 border-b border-[#0e1621] flex items-center justify-between text-xs cursor-pointer hover:bg-[#1e2c3c] transition-colors">
+                <div class="flex items-center space-x-3 overflow-hidden" onclick="scrollToPinned()">
+                    <div class="w-1 h-7 bg-sky-400 rounded-full"></div>
+                    <div class="flex flex-col overflow-hidden">
+                        <span class="text-sky-400 font-medium text-[11px]">Pinned Message</span>
+                        <span id="pinText" class="text-slate-300 truncate text-xs">...</span>
+                    </div>
                 </div>
-            </main>
-
-            <!-- Editing Indicator Bar -->
-            <div id="editBar" class="hidden bg-[#182533] px-4 py-2 border-t border-[#0e1621] flex items-center justify-between text-xs text-sky-400">
-                <div class="flex items-center space-x-2 truncate">
-                    <i class="fa-solid fa-pen"></i>
-                    <span>Editing message: <span id="editPreview" class="text-white italic"></span></span>
-                </div>
-                <button onclick="cancelEdit()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                <button onclick="unpinMessage()" class="text-gray-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
-            <!-- Chat Input Footer -->
+            <!-- Chat Messages Area -->
+            <section id="chatWindow" class="flex-1 chat-bg p-4 overflow-y-auto space-y-2.5 flex flex-col" onclick="closeContextMenu()">
+                <!-- End-to-End Encryption Tag -->
+                <div class="mx-auto my-2 px-4 py-1.5 rounded-full bg-[#111921]/85 border border-white/5 text-[11px] text-[#7f91a4] text-center shadow-inner select-none max-w-xs">
+                    <i class="fa-solid fa-lock text-emerald-400 mr-1"></i> End-to-end link encrypted room
+                </div>
+            </section>
+
+            <!-- Reply Preview Bar -->
+            <div id="replyBar" class="hidden bg-[#182533] px-4 py-2 border-t border-[#0e1621] flex items-center justify-between text-xs text-sky-400">
+                <div class="flex items-center space-x-3 overflow-hidden">
+                    <i class="fa-solid fa-reply"></i>
+                    <div class="flex flex-col overflow-hidden">
+                        <span class="font-medium text-[11px]">Replying to</span>
+                        <span id="replyPreviewText" class="text-slate-200 truncate italic"></span>
+                    </div>
+                </div>
+                <button onclick="cancelReply()" class="text-gray-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Edit Message Bar -->
+            <div id="editBar" class="hidden bg-[#182533] px-4 py-2 border-t border-[#0e1621] flex items-center justify-between text-xs text-amber-400">
+                <div class="flex items-center space-x-3 overflow-hidden">
+                    <i class="fa-solid fa-pen"></i>
+                    <div class="flex flex-col overflow-hidden">
+                        <span class="font-medium text-[11px]">Edit Message</span>
+                        <span id="editPreviewText" class="text-slate-200 truncate italic"></span>
+                    </div>
+                </div>
+                <button onclick="cancelEdit()" class="text-gray-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Chat Input Footer Bar -->
             <footer class="bg-[#17212b] p-3 border-t border-[#0e1621] flex items-center space-x-2 relative select-none">
-                <!-- Attachment Button & Hidden Inputs -->
+                <!-- Attachments Menu Button & Hidden Native Input -->
                 <button onclick="document.getElementById('fileInput').click()" class="p-2.5 text-[#7f91a4] hover:text-white hover:bg-[#202b36] rounded-full transition-colors" title="Attach Media">
                     <i class="fa-solid fa-paperclip text-lg"></i>
                 </button>
-                <input type="file" id="fileInput" class="hidden" accept="image/*,video/*,audio/*" onchange="handleFileSelect(event)">
+                <input type="file" id="fileInput" class="hidden" accept="image/*,video/*,audio/*,.pdf,.doc,.txt" onchange="handleFileSelect(event)">
 
-                <!-- Text Input Container -->
+                <!-- Input Field Wrap -->
                 <div class="flex-1 bg-[#0e1621] rounded-2xl flex items-center px-4 py-2 border border-[#202b36] focus-within:border-sky-500/50 transition-colors relative">
                     <input 
                         type="text" 
@@ -219,7 +263,7 @@
                         oninput="handleTyping()"
                     >
                     
-                    <!-- Emoji Picker Trigger -->
+                    <!-- Emoji Picker Trigger Button -->
                     <button onclick="toggleEmojiPicker()" class="text-[#7f91a4] hover:text-yellow-400 transition-colors ml-2" title="Emoji">
                         <i class="fa-regular fa-face-smile text-lg"></i>
                     </button>
@@ -241,14 +285,14 @@
                     </div>
                 </div>
 
-                <!-- Media Action Controls: Voice / Video Note / Send -->
+                <!-- Media Action Controls -->
                 <div class="flex items-center space-x-1">
-                    <!-- Toggle between Audio/Video Mode -->
+                    <!-- Audio/Video Note Switch Toggle -->
                     <button id="mediaModeBtn" onclick="toggleMediaMode()" class="p-2.5 text-[#7f91a4] hover:text-white hover:bg-[#202b36] rounded-full transition-colors" title="Switch to Video Note">
                         <i id="mediaModeIcon" class="fa-solid fa-video text-base"></i>
                     </button>
 
-                    <!-- Action Button (Record / Send) -->
+                    <!-- Primary Action Button (Send / Record) -->
                     <button 
                         id="sendBtn" 
                         onclick="handleSendOrRecord()" 
@@ -259,19 +303,25 @@
                     </button>
                 </div>
             </footer>
-        </div>
+        </main>
     </div>
 
-    <!-- Custom Context Menu for Messages -->
-    <div id="contextMenu" class="hidden absolute bg-[#17212b] border border-[#202b36] rounded-xl py-1 z-50 w-44 text-sm text-slate-200">
+    <!-- Context Menu for Messages -->
+    <div id="contextMenu" class="hidden absolute bg-[#17212b] border border-[#202b36] rounded-xl py-1 z-50 w-48 text-sm text-slate-200 context-shadow select-none">
+        <button onclick="contextAction('reply')" class="w-full text-left px-4 py-2 hover:bg-[#202b36] flex items-center space-x-3">
+            <i class="fa-solid fa-reply text-sky-400 w-4"></i><span>Reply</span>
+        </button>
         <button onclick="contextAction('copy')" class="w-full text-left px-4 py-2 hover:bg-[#202b36] flex items-center space-x-3">
-            <i class="fa-regular fa-copy text-sky-400 w-4"></i><span>Copy Text</span>
+            <i class="fa-regular fa-copy text-emerald-400 w-4"></i><span>Copy Text</span>
         </button>
         <button onclick="contextAction('edit')" id="ctxEditBtn" class="w-full text-left px-4 py-2 hover:bg-[#202b36] flex items-center space-x-3">
             <i class="fa-solid fa-pen text-amber-400 w-4"></i><span>Edit</span>
         </button>
+        <button onclick="contextAction('pin')" class="w-full text-left px-4 py-2 hover:bg-[#202b36] flex items-center space-x-3">
+            <i class="fa-solid fa-thumbtack text-indigo-400 w-4"></i><span>Pin Message</span>
+        </button>
         <button onclick="contextAction('react')" class="w-full text-left px-4 py-2 hover:bg-[#202b36] flex items-center space-x-3">
-            <i class="fa-regular fa-face-smile text-emerald-400 w-4"></i><span>Add Reaction</span>
+            <i class="fa-regular fa-face-smile text-yellow-400 w-4"></i><span>Add Reaction</span>
         </button>
         <hr class="border-[#202b36] my-1">
         <button onclick="contextAction('delete')" class="w-full text-left px-4 py-2 hover:bg-[#202b36] text-rose-400 flex items-center space-x-3">
@@ -279,7 +329,7 @@
         </button>
     </div>
 
-    <!-- Toast Popup Notification -->
+    <!-- Toast Notification Banner -->
     <div id="toast" class="fixed bottom-16 bg-[#2b5278] text-white text-xs px-4 py-2.5 rounded-lg shadow-xl border border-sky-400/30 opacity-0 pointer-events-none transition-all duration-300 transform translate-y-4 flex items-center gap-2 z-50">
         <i class="fa-solid fa-circle-check text-emerald-400"></i>
         <span id="toastMsg">Action completed!</span>
@@ -288,26 +338,29 @@
     <script>
         /*
         ========================================================================
-        TELEGRAM FULL WEB CLIENT ENGINE
+        TELEGRAM WEB COMPLETE CLIENT JS LOGIC
         ========================================================================
-        Provides complete real-time interactivity, rich media recording/sending,
-        editing, context-menus, dynamic ticks, and socket routing.
+        Includes real-time Socket.io communication, dynamic tick receipts, Web Audio
+        sound synthesis, voice/video note recorders, reactions, edit, pin, search.
         */
 
         let socket = null;
-        let roomId = "default-room";
+        let roomId = "main-room";
         let mySocketId = "usr_" + Math.random().toString(36).substring(2, 7);
         let editingMessageId = null;
+        let replyingToMessageId = null;
         let selectedMsgContext = null;
+        let pinnedMessageId = null;
+
         let currentMediaMode = 'audio'; // 'audio' or 'video'
         let mediaRecorder = null;
         let recordedChunks = [];
         let isRecording = false;
+        let typingTimeout = null;
 
-        // Message store for local tracking
         const messagesMap = new Map();
 
-        // Web Audio Synthesizer
+        // Web Audio Synthesizer (No external sound file downloads needed)
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         let audioCtx = null;
 
@@ -315,14 +368,14 @@
             if (!audioCtx) audioCtx = new AudioCtx();
         }
 
-        function playTelegramPop(isOutgoing = false) {
+        function playTelegramSound(isOutgoing = false) {
             try {
                 initAudio();
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 osc.type = 'sine';
-                
+
                 const startFreq = isOutgoing ? 600 : 400;
                 const endFreq = isOutgoing ? 900 : 750;
 
@@ -338,7 +391,7 @@
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.08);
             } catch (e) {
-                console.warn("Audio warning:", e);
+                console.warn("Audio Context Warning:", e);
             }
         }
 
@@ -354,28 +407,36 @@
             if (pathParts.length >= 2 && pathParts[0] === 'chat') {
                 roomId = pathParts[1];
             } else {
-                roomId = Math.random().toString(36).substring(2, 11);
+                roomId = Math.random().toString(36).substring(2, 10);
                 window.history.replaceState({}, '', `/chat/${roomId}`);
             }
-            document.getElementById('peerInitials').innerText = roomId.substring(0, 2).toUpperCase();
-            document.getElementById('sidebarPeerInitials').innerText = roomId.substring(0, 2).toUpperCase();
-            document.getElementById('sidebarPeerName').innerText = `Chat Room: ${roomId}`;
+
+            const initials = roomId.substring(0, 2).toUpperCase();
+            document.getElementById('chatInitials').innerText = initials;
+            document.getElementById('sidebarInitials').innerText = initials;
+            document.getElementById('chatTitle').innerText = `Room: ${roomId}`;
+            document.getElementById('sidebarRoomTitle').innerText = `Room: ${roomId}`;
         }
 
         function initializeSocket() {
             try {
                 if (typeof io !== 'undefined') {
                     socket = io();
+
                     socket.on('connect', () => {
                         mySocketId = socket.id;
                         socket.emit('join-room', { roomId });
                     });
+
                     socket.on('receive-message', handleIncomingMessage);
                     socket.on('message-edited', handleRemoteEdit);
                     socket.on('message-deleted', handleRemoteDelete);
+                    socket.on('message-read-update', handleReadReceipt);
+                    socket.on('peer-typing', handlePeerTyping);
+                    socket.on('room-status', handleRoomStatus);
                 }
             } catch (e) {
-                console.log("Socket initialized in standalone mode.");
+                console.log("Socket running in client-standalone mode.");
             }
         }
 
@@ -392,6 +453,41 @@
                         : "fa-solid fa-video text-base";
                 }
             });
+        }
+
+        function handleTyping() {
+            if (!socket) return;
+            socket.emit('typing-status', { roomId, isTyping: true });
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                socket.emit('typing-status', { roomId, isTyping: false });
+            }, 1500);
+        }
+
+        function handlePeerTyping(data) {
+            const statusElem = document.getElementById('chatStatus');
+            if (data.isTyping) {
+                statusElem.innerHTML = `<span class="typing-dots">typing<span class="typing-dot">.</span><span class="typing-dot">.</span><span class="typing-dot">.</span></span>`;
+            } else {
+                statusElem.innerText = "online";
+            }
+        }
+
+        function handleRoomStatus(data) {
+            const statusDot = document.getElementById('headerStatusDot');
+            const sidebarDot = document.getElementById('sidebarOnlineBadge');
+            const chatStatus = document.getElementById('chatStatus');
+
+            if (data.memberCount > 1) {
+                statusDot.className = "absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#17212b] rounded-full";
+                sidebarDot.className = "absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-[#17212b] rounded-full";
+                chatStatus.innerText = `${data.memberCount} members online`;
+            } else {
+                statusDot.className = "absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#17212b] rounded-full";
+                sidebarDot.className = "absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-[#17212b] rounded-full";
+                chatStatus.innerText = "online";
+            }
         }
 
         function toggleMediaMode() {
@@ -463,7 +559,7 @@
                     sendIcon.className = "fa-solid fa-stop text-base";
                     showToast(`Recording ${currentMediaMode === 'video' ? 'Video' : 'Voice'} Note...`);
                 } catch (err) {
-                    showToast("Microphone/Camera access denied!");
+                    showToast("Microphone/Camera access required!");
                 }
             } else {
                 mediaRecorder.stop();
@@ -476,7 +572,7 @@
             }
         }
 
-        // File Attachment Handling (Photos, Audio Files, Video Files)
+        // Attachment selection handler
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -501,7 +597,7 @@
             if (!text) return;
 
             if (editingMessageId) {
-                // Submit Edit
+                // Perform message edit update
                 const msgObj = messagesMap.get(editingMessageId);
                 if (msgObj) {
                     msgObj.text = text;
@@ -522,16 +618,19 @@
                 type: 'text',
                 text: text,
                 time: timeStr,
-                edited: false
+                replyTo: replyingToMessageId,
+                edited: false,
+                read: false
             };
 
             messagesMap.set(msgId, payload);
             renderMessageBubble(payload, true);
-            playTelegramPop(true);
+            playTelegramSound(true);
 
-            if (socket) socket.emit('send-message', payload);
+            if (socket) socket.emit('send-message', { ...payload, roomId });
 
             input.value = '';
+            cancelReply();
             document.getElementById('sendIcon').className = currentMediaMode === 'audio' 
                 ? "fa-solid fa-microphone text-base" 
                 : "fa-solid fa-video text-base";
@@ -548,29 +647,60 @@
                 type: mediaType,
                 mediaUrl: dataUrl,
                 fileName: fileName,
-                time: timeStr
+                time: timeStr,
+                replyTo: replyingToMessageId,
+                read: false
             };
 
             messagesMap.set(msgId, payload);
             renderMessageBubble(payload, true);
-            playTelegramPop(true);
+            playTelegramSound(true);
 
-            if (socket) socket.emit('send-message', payload);
+            if (socket) socket.emit('send-message', { ...payload, roomId });
+            cancelReply();
         }
 
         function handleIncomingMessage(data) {
             if (data.senderId === mySocketId) return;
+            data.read = true;
             messagesMap.set(data.id, data);
             renderMessageBubble(data, false);
-            playTelegramPop(false);
+            playTelegramSound(false);
+
+            if (socket) socket.emit('mark-read', { messageId: data.id, roomId });
         }
 
-        // Render Message HTML
+        function handleReadReceipt(data) {
+            const msgObj = messagesMap.get(data.messageId);
+            if (msgObj) {
+                msgObj.read = true;
+                const tickElem = document.getElementById(`tick-${data.messageId}`);
+                if (tickElem) {
+                    tickElem.className = "fa-solid fa-check-double text-[11px] text-[#64b5f6] ml-1";
+                }
+            }
+        }
+
+        function handleRemoteEdit(data) {
+            const msgObj = messagesMap.get(data.id);
+            if (msgObj) {
+                msgObj.text = data.text;
+                msgObj.edited = true;
+                updateMessageUI(msgObj);
+            }
+        }
+
+        function handleRemoteDelete(data) {
+            const wrapper = document.getElementById(`wrapper-${data.id}`);
+            if (wrapper) wrapper.remove();
+            messagesMap.delete(data.id);
+        }
+
         function renderMessageBubble(data, isMe) {
             const chatWindow = document.getElementById('chatWindow');
             const msgWrapper = document.createElement('div');
             msgWrapper.id = `wrapper-${data.id}`;
-            msgWrapper.className = `flex ${isMe ? 'justify-end' : 'justify-start'} animate-msg mb-1`;
+            msgWrapper.className = `flex ${isMe ? 'justify-end' : 'justify-start'} animate-msg mb-1 relative`;
 
             const bubble = document.createElement('div');
             bubble.id = `bubble-${data.id}`;
@@ -580,43 +710,67 @@
                     : 'bg-[#182533] text-slate-100 rounded-bl-none msg-in'
             }`;
 
-            // Context Menu Listener (Right-click or Long Press)
+            // Context Menu Event
             bubble.oncontextmenu = (e) => {
                 e.preventDefault();
                 showContextMenu(e, data.id, isMe);
             };
 
-            // Dynamic Content Construction based on Message Type
+            // Reply Quote Construct
+            let replyHTML = '';
+            if (data.replyTo && messagesMap.has(data.replyTo)) {
+                const parentMsg = messagesMap.get(data.replyTo);
+                replyHTML = `
+                    <div class="border-l-2 border-sky-400 pl-2 py-0.5 mb-1 bg-black/15 rounded text-xs text-sky-200 truncate cursor-pointer" onclick="scrollToMessage('${parentMsg.id}')">
+                        <span class="font-bold text-[11px] block text-sky-400">Replying to message</span>
+                        <span class="truncate block opacity-90">${escapeHTML(parentMsg.text || '[' + parentMsg.type + ']')}</span>
+                    </div>
+                `;
+            }
+
+            // Media & Text Content Construction
             let contentHTML = '';
 
             if (data.type === 'text') {
                 contentHTML = `<div id="text-${data.id}" class="pr-12 pb-1">${escapeHTML(data.text)}</div>`;
             } else if (data.type === 'image') {
-                contentHTML = `<div class="pb-2"><img src="${data.mediaUrl}" class="rounded-lg max-h-64 object-cover w-full cursor-pointer" onclick="window.open('${data.mediaUrl}')"></div>`;
+                contentHTML = `<div class="pb-2"><img src="${data.mediaUrl}" class="rounded-lg max-h-64 object-cover w-full cursor-pointer hover:opacity-95 transition-opacity" onclick="window.open('${data.mediaUrl}')"></div>`;
             } else if (data.type === 'video') {
                 contentHTML = `<div class="pb-2"><video src="${data.mediaUrl}" controls class="rounded-lg max-h-64 w-full"></video></div>`;
+            } else if (data.type === 'file') {
+                contentHTML = `
+                    <div class="pb-2 flex items-center space-x-3 bg-black/20 p-2 rounded-lg">
+                        <i class="fa-solid fa-file-arrow-down text-2xl text-sky-400"></i>
+                        <div class="flex flex-col overflow-hidden">
+                            <span class="truncate font-medium text-xs">${escapeHTML(data.fileName || 'Attachment')}</span>
+                            <a href="${data.mediaUrl}" download="${data.fileName || 'file'}" class="text-[11px] text-sky-300 hover:underline">Download</a>
+                        </div>
+                    </div>`;
             } else if (data.type === 'audio') {
-                contentHTML = `<div class="pb-2 flex items-center gap-2"><audio src="${data.mediaUrl}" controls class="w-60 h-8 rounded"></audio></div>`;
+                contentHTML = `<div class="pb-2 flex items-center gap-2"><audio src="${data.mediaUrl}" controls class="w-56 h-8 rounded"></audio></div>`;
             } else if (data.type === 'voice') {
                 contentHTML = `
                     <div class="flex items-center space-x-3 py-1 pr-10">
-                        <button onclick="toggleAudioSpeed('${data.id}')" id="speed-${data.id}" class="text-[10px] bg-sky-500/20 px-1.5 py-0.5 rounded text-sky-300 font-bold">1x</button>
+                        <button onclick="toggleAudioSpeed('${data.id}')" id="speed-${data.id}" class="text-[10px] bg-sky-500/20 px-1.5 py-0.5 rounded text-sky-300 font-bold hover:bg-sky-500/40">1x</button>
                         <audio id="audio-${data.id}" src="${data.mediaUrl}" controls class="h-8 w-48 sm:w-56"></audio>
                     </div>`;
             } else if (data.type === 'videonote') {
                 contentHTML = `
                     <div class="py-1 flex justify-center">
-                        <video src="${data.mediaUrl}" controls autoplay loop muted class="video-note"></video>
+                        <video src="${data.mediaUrl}" controls autoplay loop muted class="video-note-bubble"></video>
                     </div>`;
             }
 
+            // Ticks (One tick ✓ initially, Two ticks ✓✓ when read)
+            const tickIconClass = data.read ? 'fa-check-double text-[#64b5f6]' : 'fa-check text-gray-300';
             const tickHTML = isMe 
-                ? `<i id="tick-${data.id}" class="fa-solid fa-check-double text-[11px] text-[#64b5f6] ml-1" title="Read"></i>`
+                ? `<i id="tick-${data.id}" class="fa-solid ${tickIconClass} text-[11px] ml-1" title="Receipt"></i>`
                 : '';
 
             const editedHTML = data.edited ? `<span class="text-[10px] text-gray-400 mr-1 italic">edited</span>` : '';
 
             bubble.innerHTML = `
+                ${replyHTML}
                 ${contentHTML}
                 <div id="reactions-${data.id}" class="flex flex-wrap gap-1 mt-1"></div>
                 <div class="absolute bottom-1 right-2.5 flex items-center space-x-0.5 text-[10px] text-[#7f91a4] select-none pointer-events-none">
@@ -633,6 +787,7 @@
             document.getElementById('sidebarLastMsg').innerText = data.text || `[${data.type} message]`;
         }
 
+        // Context Menu System
         function showContextMenu(e, msgId, isMe) {
             selectedMsgContext = msgId;
             const menu = document.getElementById('contextMenu');
@@ -645,8 +800,8 @@
                 editBtn.classList.add('hidden');
             }
 
-            menu.style.left = `${Math.min(e.clientX, window.innerWidth - 180)}px`;
-            menu.style.top = `${Math.min(e.clientY, window.innerHeight - 150)}px`;
+            menu.style.left = `${Math.min(e.clientX, window.innerWidth - 200)}px`;
+            menu.style.top = `${Math.min(e.clientY, window.innerHeight - 220)}px`;
             menu.classList.remove('hidden');
         }
 
@@ -657,10 +812,14 @@
         function contextAction(action) {
             closeContextMenu();
             if (!selectedMsgContext) return;
-
             const msgObj = messagesMap.get(selectedMsgContext);
 
-            if (action === 'copy') {
+            if (action === 'reply') {
+                replyingToMessageId = selectedMsgContext;
+                document.getElementById('replyPreviewText').innerText = msgObj.text || `[${msgObj.type}]`;
+                document.getElementById('replyBar').classList.remove('hidden');
+                document.getElementById('messageInput').focus();
+            } else if (action === 'copy') {
                 if (msgObj && msgObj.text) {
                     navigator.clipboard.writeText(msgObj.text);
                     showToast("Copied to clipboard!");
@@ -669,10 +828,15 @@
                 if (msgObj && msgObj.text) {
                     editingMessageId = selectedMsgContext;
                     document.getElementById('messageInput').value = msgObj.text;
-                    document.getElementById('editPreview').innerText = msgObj.text;
+                    document.getElementById('editPreviewText').innerText = msgObj.text;
                     document.getElementById('editBar').classList.remove('hidden');
                     document.getElementById('messageInput').focus();
                 }
+            } else if (action === 'pin') {
+                pinnedMessageId = selectedMsgContext;
+                document.getElementById('pinText').innerText = msgObj.text || `[${msgObj.type} message]`;
+                document.getElementById('pinBanner').classList.remove('hidden');
+                showToast("Message pinned");
             } else if (action === 'delete') {
                 const wrapper = document.getElementById(`wrapper-${selectedMsgContext}`);
                 if (wrapper) wrapper.remove();
@@ -688,7 +852,7 @@
             const container = document.getElementById(`reactions-${msgId}`);
             if (container) {
                 const badge = document.createElement('span');
-                badge.className = "bg-[#101921] px-1.5 py-0.5 rounded-full text-xs border border-white/10 animate-pulse";
+                badge.className = "bg-[#101921] px-1.5 py-0.5 rounded-full text-xs border border-white/10 animate-bounce cursor-pointer";
                 badge.innerText = emoji;
                 container.appendChild(badge);
             }
@@ -712,6 +876,29 @@
             editingMessageId = null;
             document.getElementById('messageInput').value = '';
             document.getElementById('editBar').classList.add('hidden');
+        }
+
+        function cancelReply() {
+            replyingToMessageId = null;
+            document.getElementById('replyBar').classList.add('hidden');
+        }
+
+        function unpinMessage() {
+            pinnedMessageId = null;
+            document.getElementById('pinBanner').classList.add('hidden');
+        }
+
+        function scrollToPinned() {
+            if (pinnedMessageId) scrollToMessage(pinnedMessageId);
+        }
+
+        function scrollToMessage(msgId) {
+            const elem = document.getElementById(`wrapper-${msgId}`);
+            if (elem) {
+                elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                elem.classList.add('ring-2', 'ring-sky-400', 'rounded-xl');
+                setTimeout(() => elem.classList.remove('ring-2', 'ring-sky-400', 'rounded-xl'), 1500);
+            }
         }
 
         function updateMessageUI(msgObj) {
@@ -758,7 +945,7 @@
 
         function copyShareLink() {
             navigator.clipboard.writeText(window.location.href);
-            showToast("Room share link copied!");
+            showToast("Chat link copied to clipboard!");
         }
 
         function showToast(msg) {
@@ -774,7 +961,7 @@
         }
 
         function escapeHTML(str) {
-            return str.replace(/[&<>'"]/g, 
+            return (str || '').replace(/[&<>'"]/g, 
                 tag => ({
                     '&': '&amp;',
                     '<': '&lt;',
@@ -788,7 +975,6 @@
         function handleKeyDown(event) {
             if (event.key === 'Enter') sendMessage();
         }
-        function handleTyping() {}
     </script>
 </body>
 </html>
